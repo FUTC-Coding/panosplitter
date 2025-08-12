@@ -1,41 +1,44 @@
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
-    const uploadArea = document.getElementById('upload-area');
-    const fileInputLabel = document.querySelector('.file-input-label');
-    const fileInput = document.getElementById('file-input');
-    const errorMessage = document.getElementById('error-message');
-    const dismissError = document.getElementById('dismiss-error');
-    const previewContainer = document.getElementById('preview-container');
-    const previewImg = document.getElementById('preview-img');
-    const originalSizeText = document.getElementById('original-size');
-    const scaledSizeText = document.getElementById('scaled-size');
-    const sliceCountText = document.getElementById('slice-count');
-    const sliceResolutionText = document.getElementById('slice-resolution');
-    const highResToggle = document.getElementById('high-res-toggle');
-    const processBtn = document.getElementById('process-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const resultContainer = document.getElementById('result-container');
-    const slicesPreview = document.getElementById('slices-preview');
-    const downloadBtn = document.getElementById('download-btn');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    const downloadBtnText = document.querySelector('.btn-text');
-    const downloadBtnLoader = document.querySelector('.btn-loader');
+    const uploadArea = document.getElementById("upload-area");
+    const fileInputLabel = document.querySelector(".file-input-label");
+    const fileInput = document.getElementById("file-input");
+    const errorMessage = document.getElementById("error-message");
+    const dismissError = document.getElementById("dismiss-error");
+    const previewContainer = document.getElementById("preview-container");
+    const previewImg = document.getElementById("preview-img");
+    const originalSizeText = document.getElementById("original-size");
+    const scaledSizeText = document.getElementById("scaled-size");
+    const sliceCountText = document.getElementById("slice-count");
+    const sliceResolutionText = document.getElementById("slice-resolution");
+    const highResToggle = document.getElementById("high-res-toggle");
+    const aspectRatioToggle = document.getElementById("aspect-ratio-toggle");
+    const aspectRatioLabel = document.getElementById("aspect-ratio-label");
+    const processBtn = document.getElementById("process-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const resultContainer = document.getElementById("result-container");
+    const slicesPreview = document.getElementById("slices-preview");
+    let downloadBtn = document.getElementById("download-btn");
+    const loadingOverlay = document.getElementById("loading-overlay");
+    const loadingText = document.getElementById("loading-text");
+    const downloadBtnText = document.querySelector(".btn-text");
+    const downloadBtnLoader = document.querySelector(".btn-loader");
     
     // Variables to store image data
     let originalImage = null;
     let slicedImages = [];
     let fullViewImage = null;
     
-    // Standard Instagram 4:5 aspect ratio
-    const aspectRatio = 4/5; // width:height ratio
+    // Default Ratio
+    let aspectRatio = 4 / 5; // default 4:5
+    aspectRatioToggle.checked = false;
+    aspectRatioLabel.textContent = '4:5';
     
     // Standard resolution (for standard mode)
     const standardWidth = 1080;
-    const standardHeight = Math.round(standardWidth / aspectRatio); // Should be 1350
+    let standardHeight = Math.round(standardWidth / aspectRatio);
     
     const minSlices = 2;
-    const halfSliceWidth = standardWidth / 2;
     
     // Show loading overlay with custom message
     function showLoading(message) {
@@ -115,20 +118,17 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage.style.display = 'none';
     });
     
-    // Download button
-    downloadBtn.addEventListener('click', () => {
-        showButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
-        
-        // Use setTimeout to allow the UI to update before processing
-        setTimeout(() => {
-            downloadZip().then(() => {
-                hideButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
-            }).catch((error) => {
-                console.error('Error creating zip:', error);
-                hideButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
-                showError('There was a problem creating your zip file. Please try again.');
-            });
-        }, 50);
+    // Toggle aspect ratio
+    aspectRatioToggle.addEventListener("change", () => {
+        if (aspectRatioToggle.checked) {
+            aspectRatio = 1; // Square
+            aspectRatioLabel.textContent = "1:1";
+        } else {
+            aspectRatio = 4 / 5; // Portrait
+            aspectRatioLabel.textContent = "4:5";
+        }
+        standardHeight = Math.round(standardWidth / aspectRatio);
+        if (originalImage) updateImageDetails();
     });
     
     // High-res toggle change
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             img.onload = () => {
                 hideLoading();
                 
-                // Check if image has horizontal aspect ratio
+                // Check if image is panorama (horizontal aspect ratio)
                 if (img.width <= img.height) {
                     showError('Please upload a panorama image with a horizontal aspect ratio (width > height).');
                     return;
@@ -169,6 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     height: img.height,
                     src: e.target.result
                 };
+                slicedImages = [];
+                fullViewImage = null;
                 
                 // Update image details
                 updateImageDetails();
@@ -204,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { scaledWidth, scaledHeight, sliceCount, sliceWidth, sliceHeight } = calculateOptimalScaling(
             originalImage.width, 
             originalImage.height, 
-            isHighResMode
+            highResToggle.checked
         );
         
         // Update image details
@@ -224,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (highResMode) {
             // Calculate maximum height based on original image height
             sliceHeight = originalHeight;
-            // Calculate corresponding width based on 4:5 aspect ratio
+            // Calculate corresponding width based on selected aspect ratio
             sliceWidth = Math.round(sliceHeight * aspectRatio);
         }
         
@@ -265,16 +267,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             scaledWidth: finalScaledWidth,
             scaledHeight: finalScaledHeight,
-            sliceCount: finalSliceCount,
-            sliceWidth: sliceWidth,
-            sliceHeight: sliceHeight
+            sliceCount: finalSliceCount, sliceWidth, sliceHeight 
         };
     }
     
     // Show error message
     function showError(message) {
-        const errorText = errorMessage.querySelector('p');
-        errorText.textContent = message;
+        errorMessage.querySelector("p").textContent = message;
         errorMessage.style.display = 'block';
         
         // Scroll to error
@@ -338,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayResults();
     }
     
-    // Create a full panorama view on white background with 4:5 aspect ratio
+    // Create a full panorama view on white background with selected aspect ratio
     function createFullViewImage(sliceWidth, sliceHeight) {
         if (!originalImage) return;
         
@@ -418,9 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resolution.className = 'resolution';
             resolution.textContent = `${fullViewImage.width}×${fullViewImage.height}`;
             
-            fullViewItem.appendChild(img);
-            fullViewItem.appendChild(label);
-            fullViewItem.appendChild(resolution);
+            fullViewItem.append(img, label, resolution);
             slicesPreview.appendChild(fullViewItem);
         }
         
@@ -441,39 +438,33 @@ document.addEventListener('DOMContentLoaded', () => {
             resolution.className = 'resolution';
             resolution.textContent = `${slice.width}×${slice.height}`;
             
-            sliceItem.appendChild(img);
-            sliceItem.appendChild(number);
-            sliceItem.appendChild(resolution);
+            sliceItem.append(img, number, resolution);
             slicesPreview.appendChild(sliceItem);
         });
         
-        resultContainer.style.display = 'block';
+        resultContainer.style.display = "block";
         window.scrollTo({
             top: resultContainer.offsetTop - 20,
-            behavior: 'smooth'
+            behavior: "smooth",
+         });
+
+        // Reset & re-bind download button to prevent multiple zips
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+        downloadBtn = newDownloadBtn;
+
+        downloadBtn.addEventListener("click", () => {
+            showButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
+            setTimeout(() => {
+                downloadZip().then(() => {
+                    hideButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
+                }).catch((error) => {
+                    console.error("Error creating zip:", error);
+                    hideButtonLoading(downloadBtn, downloadBtnText, downloadBtnLoader);
+                    showError("There was a problem creating your zip file. Please try again.");
+                });
+            }, 50);
         });
-    }
-    
-    // Reset app to initial state
-    function resetApp() {
-        // Clear file input
-        fileInput.value = '';
-        
-        // Hide preview and results
-        previewContainer.style.display = 'none';
-        resultContainer.style.display = 'none';
-        errorMessage.style.display = 'none';
-        
-        // Show upload area
-        uploadArea.style.display = 'block';
-        
-        // Clear image data
-        originalImage = null;
-        slicedImages = [];
-        fullViewImage = null;
-        
-        // Clear preview
-        previewImg.src = '';
     }
     
     // Download slices as zip file
@@ -518,5 +509,17 @@ For best results on Instagram:
         // Generate zip file
         const content = await zip.generateAsync({ type: 'blob' });
         saveAs(content, 'instagram_carousel_slices.zip');
+    }
+
+    function resetApp() {
+        fileInput.value = "";
+        previewContainer.style.display = "none";
+        resultContainer.style.display = "none";
+        errorMessage.style.display = "none";
+        uploadArea.style.display = "block";
+        originalImage = null;
+        slicedImages = [];
+        fullViewImage = null;
+        previewImg.src = "";
     }
 });
