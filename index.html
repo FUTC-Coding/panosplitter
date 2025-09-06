@@ -18,8 +18,17 @@
                 <img src="images/logo.svg" alt="FUTC Bird Logo" width="100" height="100" class="logo">
             </div>
             <h1>FUTC's Instagram Panorama Slicer</h1>
-            <p>Split your panorama images into Instagram-friendly carousel posts (4:5 aspect ratio)</p>
+            <p>Split your panorama images into Instagram-friendly carousel posts (standard is 4:5 aspect ratio, choose yours below)</p>
             <p>Your photos never leave your computer, all processing is done locally</p>
+
+            <div class="aspect-ratio-selector">
+                <label for="aspect-ratio">Choose aspect ratio:</label>
+                <select id="aspect-ratio" name="aspect-ratio">
+                    <option value="4:5" selected>4:5 (Instagram standard portrait)</option>
+                    <option value="1:1">1:1 (Square)</option>
+                    <option value="9:16">9:16 (Stories/Reels)</option>
+                </select>
+            </div>
         </header>
 
         <!-- Loading overlay -->

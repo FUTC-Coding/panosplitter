@@ -677,3 +677,36 @@ footer {
         justify-content: space-between;
     }
 }
+
+/* Style for aspect ratio selector */
+.aspect-ratio-selector {
+    margin-top: 1.5rem;
+}
+
+.aspect-ratio-selector label {
+    font-weight: 600;
+    margin-right: 0.5rem;
+    color: #333;
+}
+
+.aspect-ratio-selector select {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.aspect-ratio-selector select:hover {
+    border-color: #007bff;
+    box-shadow: 0 0 6px rgba(0, 123, 255, 0.3);
+}
+
+.aspect-ratio-selector select:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 6px rgba(0, 86, 179, 0.3);
+}

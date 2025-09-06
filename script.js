@@ -1,3 +1,9 @@
+function getAspectRatio(aspectRatioSelect) {
+        const value = aspectRatioSelect.value;
+        const [w, h] = value.split(":").map(Number);
+        return w / h; // returns numerical ratio
+    }
+
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const uploadArea = document.getElementById('upload-area');
@@ -21,18 +27,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingText = document.getElementById('loading-text');
     const downloadBtnText = document.querySelector('.btn-text');
     const downloadBtnLoader = document.querySelector('.btn-loader');
+
+    // variable aspectRatio
+    let aspectRatio = getAspectRatio(document.getElementById("aspect-ratio"));
     
     // Variables to store image data
     let originalImage = null;
     let slicedImages = [];
     let fullViewImage = null;
     
-    // Standard Instagram 4:5 aspect ratio
-    const aspectRatio = 4/5; // width:height ratio
-    
     // Standard resolution (for standard mode)
     const standardWidth = 1080;
-    const standardHeight = Math.round(standardWidth / aspectRatio); // Should be 1350
+    let standardHeight = Math.round(standardWidth / aspectRatio); // Should be 1350
     
     const minSlices = 2;
     const halfSliceWidth = standardWidth / 2;
@@ -134,6 +140,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // High-res toggle change
     highResToggle.addEventListener('change', () => {
         if (originalImage) {
+            updateImageDetails();
+        }
+    });
+
+    // Aspect ratio change
+    aspectRatioSelect = document.getElementById("aspect-ratio");
+    aspectRatioSelect.addEventListener('change', () => {
+        if (originalImage) {
+            aspectRatio = getAspectRatio(aspectRatioSelect);
+            standardHeight = Math.round(standardWidth / aspectRatio);
             updateImageDetails();
         }
     });
@@ -405,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fullViewImage) {
             const fullViewItem = document.createElement('div');
             fullViewItem.className = 'slice-item full-view-item';
+            fullViewItem.style.aspectRatio = `${fullViewImage.width}/${fullViewImage.height}`;
             
             const img = document.createElement('img');
             img.src = fullViewImage.dataURL;
@@ -428,11 +445,12 @@ document.addEventListener('DOMContentLoaded', () => {
         slicedImages.forEach(slice => {
             const sliceItem = document.createElement('div');
             sliceItem.className = 'slice-item';
+            sliceItem.style.aspectRatio = `${slice.width} / ${slice.height}`;
             
             const img = document.createElement('img');
             img.src = slice.dataURL;
             img.alt = `Slice ${slice.number}`;
-            
+                        
             const number = document.createElement('div');
             number.className = 'slice-number';
             number.textContent = slice.number;
