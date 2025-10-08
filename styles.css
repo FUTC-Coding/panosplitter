@@ -399,6 +399,30 @@ input:checked + .toggle-slider:before {
     margin-left: 0;
 }
 
+.aspect-ratio-select {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    background-color: var(--white);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-top: 8px;
+}
+
+.aspect-ratio-select:hover {
+    border-color: var(--accent-color);
+}
+
+.aspect-ratio-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
 .actions {
     display: flex;
     flex-direction: column;

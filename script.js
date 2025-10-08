@@ -27,12 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let slicedImages = [];
     let fullViewImage = null;
     
-    // Standard Instagram 4:5 aspect ratio
-    const aspectRatio = 4/5; // width:height ratio
+    // Standard Instagram 3:4 aspect ratio
+    const aspectRatio = 3/4; // width:height ratio
     
     // Standard resolution (for standard mode)
     const standardWidth = 1080;
-    const standardHeight = Math.round(standardWidth / aspectRatio); // Should be 1350
+    const standardHeight = Math.round(standardWidth / aspectRatio); // Should be 1440
     
     const minSlices = 2;
     const halfSliceWidth = standardWidth / 2;
@@ -224,50 +224,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (highResMode) {
             // Calculate maximum height based on original image height
             sliceHeight = originalHeight;
-            // Calculate corresponding width based on 4:5 aspect ratio
+            // Calculate corresponding width based on 3:4 aspect ratio
             sliceWidth = Math.round(sliceHeight * aspectRatio);
         }
         
-        // Initial scaling based on height
-        const scaleFactor = sliceHeight / originalHeight;
-        const baseScaledWidth = Math.round(originalWidth * scaleFactor);
+        // Calculate the minimum number of slices needed to contain the image
+        // while maintaining the original aspect ratio
+        const originalAspectRatio = originalWidth / originalHeight;
+        const sliceAspectRatio = sliceWidth / sliceHeight;
         
-        // Calculate how many full slices we can get
-        const fullSlices = Math.floor(baseScaledWidth / sliceWidth);
+        // Calculate how many slices we need to maintain the original aspect ratio
+        let requiredSlices;
         
-        // Calculate the remaining width after using full slices
-        const remainingWidth = baseScaledWidth - (fullSlices * sliceWidth);
-        
-        let finalSliceCount, finalScaledWidth, finalScaledHeight;
-        
-        // Ensure a minimum of 2 slices
-        if (fullSlices < minSlices) {
-            finalSliceCount = minSlices;
-            finalScaledWidth = minSlices * sliceWidth;
-            // Calculate height based on maintaining aspect ratio
-            finalScaledHeight = Math.round((finalScaledWidth / originalWidth) * originalHeight);
+        if (originalAspectRatio >= sliceAspectRatio) {
+            // Image is wider than slice ratio - calculate based on width
+            requiredSlices = Math.ceil(originalAspectRatio / sliceAspectRatio);
+        } else {
+            // Image is taller than slice ratio - use minimum slices
+            requiredSlices = minSlices;
         }
-        // If remaining width is more than half a slice, add another slice
-        else if (remainingWidth > (sliceWidth / 2)) {
-            finalSliceCount = fullSlices + 1;
-            finalScaledWidth = finalSliceCount * sliceWidth;
-            // Adjust the scale factor to fit exactly the number of slices
-            const adjustedScaleFactor = finalScaledWidth / originalWidth;
-            finalScaledHeight = Math.round(originalHeight * adjustedScaleFactor);
-        } 
-        // Otherwise use the original number of slices
-        else {
-            finalSliceCount = fullSlices;
-            finalScaledWidth = finalSliceCount * sliceWidth;
-            finalScaledHeight = sliceHeight;
-        }
+        
+        // Ensure we have at least the minimum number of slices
+        const finalSliceCount = Math.max(minSlices, requiredSlices);
+        
+        // Calculate the total canvas size that maintains the original aspect ratio
+        // while filling all slices
+        const totalCanvasWidth = finalSliceCount * sliceWidth;
+        const totalCanvasHeight = sliceHeight;
+        
+        // Scale the image to fit this canvas while maintaining aspect ratio
+        const scaleX = totalCanvasWidth / originalWidth;
+        const scaleY = totalCanvasHeight / originalHeight;
+        const scaleFactor = Math.min(scaleX, scaleY);
+        
+        const scaledImageWidth = Math.round(originalWidth * scaleFactor);
+        const scaledImageHeight = Math.round(originalHeight * scaleFactor);
         
         return {
-            scaledWidth: finalScaledWidth,
-            scaledHeight: finalScaledHeight,
+            scaledWidth: scaledImageWidth,
+            scaledHeight: scaledImageHeight,
             sliceCount: finalSliceCount,
             sliceWidth: sliceWidth,
-            sliceHeight: sliceHeight
+            sliceHeight: sliceHeight,
+            totalCanvasWidth: totalCanvasWidth,
+            totalCanvasHeight: totalCanvasHeight
         };
     }
     
@@ -284,45 +284,69 @@ document.addEventListener('DOMContentLoaded', () => {
     // Process image into slices
     function processImage() {
         if (!originalImage) return;
-        
+
         const isHighResMode = highResToggle.checked;
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         // Calculate optimal scaling and slicing
-        const { scaledWidth, scaledHeight, sliceCount, sliceWidth, sliceHeight } = calculateOptimalScaling(
+        const { scaledWidth, scaledHeight, sliceCount, sliceWidth, sliceHeight, totalCanvasWidth, totalCanvasHeight } = calculateOptimalScaling(
             originalImage.width, 
             originalImage.height,
             isHighResMode
         );
+
+        // Set canvas dimensions to the total canvas size
+        canvas.width = totalCanvasWidth;
+        canvas.height = totalCanvasHeight;
+
+        // Fill with white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, totalCanvasWidth, totalCanvasHeight);
+
+        // Scale to FILL the canvas (crop to fill, not fit)
+        // This ensures no white bars appear in the slices
+        const scaleX = totalCanvasWidth / originalImage.width;
+        const scaleY = totalCanvasHeight / originalImage.height;
+        const scaleFactor = Math.max(scaleX, scaleY); // Use max to fill, not min
         
-        // Set canvas dimensions
-        canvas.width = scaledWidth;
-        canvas.height = scaledHeight;
-        
-        // Draw scaled image
-        ctx.drawImage(originalImage.element, 0, 0, scaledWidth, scaledHeight);
-        
+        const scaledImageWidth = Math.round(originalImage.width * scaleFactor);
+        const scaledImageHeight = Math.round(originalImage.height * scaleFactor);
+
+        // Calculate position to center the scaled image on the total canvas
+        const offsetX = (totalCanvasWidth - scaledImageWidth) / 2;
+        const offsetY = (totalCanvasHeight - scaledImageHeight) / 2;
+
+        // Draw the image scaled to fill and centered (this will crop if necessary)
+        ctx.drawImage(
+            originalImage.element,
+            0, 0, originalImage.width, originalImage.height,
+            offsetX, offsetY, scaledImageWidth, scaledImageHeight
+        );
+
         slicedImages = [];
-        
+
         // Create each slice
         for (let i = 0; i < sliceCount; i++) {
             const sliceCanvas = document.createElement('canvas');
             const sliceCtx = sliceCanvas.getContext('2d');
-            
+
             sliceCanvas.width = sliceWidth;
             sliceCanvas.height = sliceHeight;
+
+            // Calculate the source area for this slice
+            const sourceX = i * sliceWidth;
             
-            // Draw slice portion
+            // Draw the slice portion from the main canvas
             sliceCtx.drawImage(
                 canvas, 
-                i * sliceWidth, 0, sliceWidth, scaledHeight,
+                sourceX, 0, sliceWidth, sliceHeight,
                 0, 0, sliceWidth, sliceHeight
             );
-            
+
             // Convert to data URL
             const dataURL = sliceCanvas.toDataURL('image/jpeg', 0.95);
-            
+
             slicedImages.push({
                 dataURL,
                 number: i + 1,
@@ -330,15 +354,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: sliceHeight
             });
         }
-        
+
         // Create the full panorama view on white background
         createFullViewImage(sliceWidth, sliceHeight);
-        
+
         // Show results
         displayResults();
     }
     
-    // Create a full panorama view on white background with 4:5 aspect ratio
+    // Create a full panorama view on white background with 3:4 aspect ratio
     function createFullViewImage(sliceWidth, sliceHeight) {
         if (!originalImage) return;
         
@@ -505,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
 IF YOU LIKE THIS TOOL, PLEASE CONSIDER SUPPORTING ME BY CHECKING OUT MY LIGHTROOM PRESET PACKS (this link includes a heavy discount): https://futc.gumroad.com/l/analogvibes2/panosplitter
 
 This package contains:
-- slice_00_full_view.jpg: A complete view of your panorama that fits Instagram's 4:5 aspect ratio
+- slice_00_full_view.jpg: A complete view of your panorama that fits Instagram's 3:4 aspect ratio
 - slice_01.jpg to slice_${String(slicedImages.length).padStart(2, '0')}.jpg: Individual slices of your panorama
 
 For best results on Instagram:
