@@ -7,11 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const dismissError = document.getElementById('dismiss-error');
     const previewContainer = document.getElementById('preview-container');
     const previewImg = document.getElementById('preview-img');
+    const imageCountText = document.getElementById('image-count');
     const originalSizeText = document.getElementById('original-size');
     const scaledSizeText = document.getElementById('scaled-size');
     const sliceCountText = document.getElementById('slice-count');
     const sliceResolutionText = document.getElementById('slice-resolution');
     const highResToggle = document.getElementById('high-res-toggle');
+    const slicesToggle = document.getElementById('slices-toggle');
     const processBtn = document.getElementById('process-btn');
     const resetBtn = document.getElementById('reset-btn');
     const resultContainer = document.getElementById('result-container');
@@ -23,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtnLoader = document.querySelector('.btn-loader');
     
     // Variables to store image data
-    let originalImage = null;
-    let slicedImages = [];
-    let fullViewImage = null;
+    let originalImages = [];
+    let processedImages = [];
+    let processedOptions = null;
     
     // Standard Instagram 3:4 aspect ratio
     const aspectRatio = 3/4; // width:height ratio
@@ -77,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadArea.classList.remove('drag-over');
         
         if (e.dataTransfer.files.length) {
-            handleFile(e.dataTransfer.files[0]);
+            handleFiles(e.dataTransfer.files);
         }
     });
     
@@ -90,18 +92,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // File input change
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length) {
-            handleFile(e.target.files[0]);
+            handleFiles(e.target.files);
         }
     });
     
     // Process button
     processBtn.addEventListener('click', () => {
-        showLoading('Generating slices...');
+        showLoading('Generating images...');
         
         // Use setTimeout to allow the loading overlay to appear before processing
         setTimeout(() => {
-            processImage();
-            hideLoading();
+            try {
+                processImages();
+            } finally {
+                hideLoading();
+            }
         }, 50);
     });
     
@@ -133,72 +138,75 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // High-res toggle change
     highResToggle.addEventListener('change', () => {
-        if (originalImage) {
+        if (originalImages.length) {
             updateImageDetails();
         }
     });
+
+    slicesToggle.addEventListener('change', () => {
+        if (originalImages.length) updateImageDetails();
+    });
     
     // Handle file upload
-    function handleFile(file) {
-        // Check if file is image
-        if (!file.type.match('image.*')) {
-            showError('Please select an image file');
+    async function handleFiles(fileList) {
+        const files = Array.from(fileList);
+        const invalidFile = files.find(file => !file.type.match('image.*'));
+        if (!files.length || invalidFile) {
+            showError('Please select image files only');
             return;
         }
-        
+
         showLoading('Loading your image...');
-        
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            // Create image object to get dimensions
-            const img = new Image();
-            
-            img.onload = () => {
-                hideLoading();
-                
-                // Check if image has horizontal aspect ratio
-                if (img.width <= img.height) {
-                    showError('Please upload a panorama image with a horizontal aspect ratio (width > height).');
-                    return;
-                }
-                
-                originalImage = {
+        try {
+            const loadedImages = await Promise.all(files.map(loadImage));
+            const nonHorizontal = loadedImages.find(image => image.width <= image.height);
+            if (nonHorizontal) {
+                showError(`“${nonHorizontal.name}” is not horizontal. Please select images where width is greater than height.`);
+                return;
+            }
+
+            originalImages = loadedImages;
+            processedImages = [];
+            processedOptions = null;
+            updateImageDetails();
+            previewImg.src = originalImages[0].src;
+            errorMessage.style.display = 'none';
+            uploadArea.style.display = 'none';
+            previewContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+        } catch (error) {
+            console.error('Error reading images:', error);
+            showError('There was an error reading one of the files. Please try again.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function loadImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onerror = reject;
+                img.onload = () => resolve({
                     element: img,
                     width: img.width,
                     height: img.height,
-                    src: e.target.result
-                };
-                
-                // Update image details
-                updateImageDetails();
-                
-                // Show preview
-                previewImg.src = e.target.result;
-                
-                // Hide error if shown
-                errorMessage.style.display = 'none';
-                
-                // Show preview container
-                uploadArea.style.display = 'none';
-                previewContainer.style.display = 'block';
-                resultContainer.style.display = 'none';
+                    src: event.target.result,
+                    name: file.name
+                });
+                img.src = event.target.result;
             };
-            
-            img.src = e.target.result;
-        };
-        
-        reader.onerror = () => {
-            hideLoading();
-            showError('There was an error reading the file. Please try again.');
-        };
-        
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+        });
     }
     
     // Update image details based on selected mode
     function updateImageDetails() {
-        if (!originalImage) return;
+        if (!originalImages.length) return;
+
+        const originalImage = originalImages[0];
         
         const isHighResMode = highResToggle.checked;
         const { scaledWidth, scaledHeight, sliceCount, sliceWidth, sliceHeight } = calculateOptimalScaling(
@@ -208,9 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         
         // Update image details
+        imageCountText.textContent = originalImages.length;
         originalSizeText.textContent = `${originalImage.width}px × ${originalImage.height}px`;
         scaledSizeText.textContent = `${scaledWidth}px × ${scaledHeight}px`;
-        sliceCountText.textContent = sliceCount;
+        sliceCountText.textContent = slicesToggle.checked ? `${sliceCount} per image` : 'None (framed images only)';
         sliceResolutionText.textContent = `${sliceWidth}px × ${sliceHeight}px`;
     }
     
@@ -281,9 +290,19 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage.scrollIntoView({ behavior: 'smooth' });
     }
     
-    // Process image into slices
-    function processImage() {
-        if (!originalImage) return;
+    // Process all selected images using the chosen output mode
+    function processImages() {
+        if (!originalImages.length) return;
+
+        processedImages = originalImages.map(originalImage => processImage(originalImage));
+        processedOptions = {
+            highRes: highResToggle.checked,
+            includeSlices: slicesToggle.checked
+        };
+        displayResults();
+    }
+
+    function processImage(originalImage) {
 
         const isHighResMode = highResToggle.checked;
         const canvas = document.createElement('canvas');
@@ -324,10 +343,10 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetX, offsetY, scaledImageWidth, scaledImageHeight
         );
 
-        slicedImages = [];
+        const slicedImages = [];
 
-        // Create each slice
-        for (let i = 0; i < sliceCount; i++) {
+        // Create slices only when carousel output is enabled
+        if (slicesToggle.checked) for (let i = 0; i < sliceCount; i++) {
             const sliceCanvas = document.createElement('canvas');
             const sliceCtx = sliceCanvas.getContext('2d');
 
@@ -356,15 +375,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Create the full panorama view on white background
-        createFullViewImage(sliceWidth, sliceHeight);
-
-        // Show results
-        displayResults();
+        const fullViewImage = createFullViewImage(originalImage, sliceWidth, sliceHeight);
+        return { name: originalImage.name, slicedImages, fullViewImage };
     }
     
     // Create a full panorama view on white background with 3:4 aspect ratio
-    function createFullViewImage(sliceWidth, sliceHeight) {
-        if (!originalImage) return;
+    function createFullViewImage(originalImage, sliceWidth, sliceHeight) {
         
         // Create a canvas with the same aspect ratio as the slices
         const fullCanvas = document.createElement('canvas');
@@ -414,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fullCtx.strokeRect(x - 1, y - 1, scaledPanoWidth + 2, scaledPanoHeight + 2);
         
         // Convert to data URL
-        fullViewImage = {
+        return {
             dataURL: fullCanvas.toDataURL('image/jpeg', 0.95),
             width: sliceWidth,
             height: sliceHeight
@@ -425,7 +441,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayResults() {
         slicesPreview.innerHTML = '';
         
-        // Add the full view as the first item with special styling
+        processedImages.forEach((processedImage) => {
+        const { name, fullViewImage, slicedImages } = processedImage;
+
+        const batchTitle = document.createElement('h3');
+        batchTitle.className = 'batch-image-title';
+        batchTitle.textContent = name;
+        slicesPreview.appendChild(batchTitle);
+
+        // Add the full view as the first item for this source image
         if (fullViewImage) {
             const fullViewItem = document.createElement('div');
             fullViewItem.className = 'slice-item full-view-item';
@@ -470,6 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sliceItem.appendChild(resolution);
             slicesPreview.appendChild(sliceItem);
         });
+        });
         
         resultContainer.style.display = 'block';
         window.scrollTo({
@@ -492,9 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadArea.style.display = 'block';
         
         // Clear image data
-        originalImage = null;
-        slicedImages = [];
-        fullViewImage = null;
+        originalImages = [];
+        processedImages = [];
+        processedOptions = null;
         
         // Clear preview
         previewImg.src = '';
@@ -502,23 +527,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Download slices as zip file
     async function downloadZip() {
-        if (slicedImages.length === 0) return;
+        if (processedImages.length === 0) return;
         
         const zip = new JSZip();
-        const isHighRes = highResToggle.checked;
-        const folderName = isHighRes ? 'high_res_slices' : 'standard_slices';
-        
-        // Add the full view as slice_00.jpg if available
-        if (fullViewImage) {
-            const imageData = fullViewImage.dataURL.split(',')[1];
-            zip.file(`${folderName}/slice_00_full_view.jpg`, imageData, { base64: true });
-        }
-        
-        // Add each slice to the zip
-        slicedImages.forEach(slice => {
-            // Convert data URL to blob
-            const imageData = slice.dataURL.split(',')[1];
-            zip.file(`${folderName}/slice_${String(slice.number).padStart(2, '0')}.jpg`, imageData, { base64: true });
+        const isHighRes = processedOptions?.highRes ?? highResToggle.checked;
+        const includeSlices = processedOptions?.includeSlices ?? slicesToggle.checked;
+        const folderName = isHighRes ? 'high_res_images' : 'standard_images';
+
+        processedImages.forEach((processedImage, index) => {
+            const baseName = sanitizeFileName(processedImage.name.replace(/\.[^.]+$/, '')) || `image_${index + 1}`;
+            const uniqueName = `${String(index + 1).padStart(2, '0')}_${baseName}`;
+
+            if (processedImage.fullViewImage) {
+                const imageData = processedImage.fullViewImage.dataURL.split(',')[1];
+                zip.file(`${folderName}/${uniqueName}_full_view.jpg`, imageData, { base64: true });
+            }
+
+            processedImage.slicedImages.forEach(slice => {
+                const imageData = slice.dataURL.split(',')[1];
+                zip.file(`${folderName}/${uniqueName}_slice_${String(slice.number).padStart(2, '0')}.jpg`, imageData, { base64: true });
+            });
         });
         
         // Add a readme file explaining the full view
@@ -528,19 +556,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 IF YOU LIKE THIS TOOL, PLEASE CONSIDER SUPPORTING ME BY CHECKING OUT MY LIGHTROOM PRESET PACKS (this link includes a heavy discount): https://futc.gumroad.com/l/analogvibes2/panosplitter
 
-This package contains:
-- slice_00_full_view.jpg: A complete view of your panorama that fits Instagram's 3:4 aspect ratio
-- slice_01.jpg to slice_${String(slicedImages.length).padStart(2, '0')}.jpg: Individual slices of your panorama
-
-For best results on Instagram:
-1. Make an instagram carousel post adding slice_01.jpg through slice_${String(slicedImages.length).padStart(2, '0')}.jpg in order
-2. Add slice_00_full_view.jpg either as the first or last image in the carousel
+This package contains one image folder with all generated files.
+Files ending in _full_view.jpg contain the complete source image centered on a white 3:4 background.${includeSlices ? '\nCarousel mode was enabled, so the folder also contains numbered _slice_XX.jpg files.' : ''}
 `;
         
         zip.file('README.txt', readmeContent);
         
         // Generate zip file
         const content = await zip.generateAsync({ type: 'blob' });
-        saveAs(content, 'instagram_carousel_slices.zip');
+        saveAs(content, includeSlices ? 'instagram_carousel_images.zip' : 'instagram_framed_images.zip');
+    }
+
+    function sanitizeFileName(name) {
+        return name.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '');
     }
 });

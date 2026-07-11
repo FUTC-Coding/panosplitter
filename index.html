@@ -41,10 +41,10 @@
         <div class="upload-area" id="upload-area">
             <div class="upload-inner">
                 <img src="images/upload-icon.svg" alt="Upload" width="48" height="48">
-                <h3>Drop your panorama image here</h3>
+                <h3>Drop your panorama images here</h3>
                 <p>or</p>
-                <label for="file-input" class="file-input-label">Select File</label>
-                <input type="file" id="file-input" accept="image/*" hidden>
+                <label for="file-input" class="file-input-label">Select Images</label>
+                <input type="file" id="file-input" accept="image/*" multiple hidden>
                 <p class="support-text">Supports: JPG, PNG, WEBP</p>
             </div>
         </div>
@@ -59,13 +59,22 @@
                     <div class="info-card">
                         <h3>Image Details</h3>
                         <div id="image-details">
-                            <p>Original Size: <span id="original-size"></span></p>
+                            <p>Images Selected: <span id="image-count"></span></p>
+                            <p>First Image Size: <span id="original-size"></span></p>
                             <p>Scaled Size: <span id="scaled-size"></span></p>
                             <p>Number of Slices: <span id="slice-count"></span></p>
                             <p>Slice Resolution: <span id="slice-resolution"></span></p>
                         </div>
                     </div>
                     <div class="options">
+                        <div class="toggle-container">
+                            <label class="toggle">
+                                <span class="toggle-label">Create Carousel Slices</span>
+                                <input type="checkbox" id="slices-toggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <p class="toggle-description">Turn off to create only white-background framed images</p>
+                        </div>
                         <div class="toggle-container">
                             <label class="toggle">
                                 <span class="toggle-label">High Resolution Mode</span>
@@ -76,7 +85,7 @@
                         </div>
                     </div>
                     <div class="actions">
-                        <button id="process-btn" class="primary-btn">Generate Slices</button>
+                        <button id="process-btn" class="primary-btn">Generate Images</button>
                         <button id="reset-btn" class="secondary-btn">Reset</button>
                     </div>
                 </div>
@@ -84,11 +93,11 @@
         </div>
 
         <div class="result-container" id="result-container">
-            <h2>Sliced Images</h2>
+            <h2>Generated Images</h2>
             <div class="slices-preview" id="slices-preview"></div>
             <div class="download-section">
                 <button id="download-btn" class="primary-btn">
-                    <span class="btn-text">Download All Slices as ZIP</span>
+                    <span class="btn-text">Download All Images as ZIP</span>
                     <span class="btn-loader"></span>
                 </button>
             </div>
