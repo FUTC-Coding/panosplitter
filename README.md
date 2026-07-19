@@ -6,5 +6,11 @@ Process one or more horizontal images for Instagram entirely in your browser.
 - Turn carousel slices off to batch-create only white-background framed images.
 - Download all generated images together in one ZIP folder with collision-safe filenames.
 
+Website: **https://pano.futc.de/**
+
+Video Showcase: 
+
+[![](https://img.youtube.com/vi/nxADAKlvuRI/0.jpg)](https://www.youtube.com/watch?v=nxADAKlvuRI)
+
 # License
 The code in this project is licensed under GPLv3. Except for all images which are not free to use.
